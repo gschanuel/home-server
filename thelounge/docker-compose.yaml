@@ -1,0 +1,27 @@
+name: thelounge
+services:
+  thelounge:
+    image: thelounge/thelounge
+    container_name: thelounge
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.thelounge.tls=true"
+      - "traefik.http.routers.thelounge.entrypoints=websecure"
+      - "traefik.http.routers.thelounge.rule=Host(`thelounge.${DOMAIN}`)"
+      - "traefik.http.services.thelounge.loadbalancer.server.port=9000"
+    volumes:
+      - thelounge:/var/opt/thelounge
+    networks:
+      - services
+
+volumes:
+  thelounge:
+    external: true
+
+networks:
+  services:
+    name: services
+    external: true

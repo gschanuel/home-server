@@ -1,0 +1,37 @@
+name: bazarr
+services:
+  bazarr:
+    container_name: bazarr
+    image: ghcr.io/onedr0p/bazarr:rolling
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.bazarr.tls=true"
+      - "traefik.http.routers.bazarr.entrypoints=websecure"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN}`)"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: America/Sao_Paulo
+    volumes:
+      - bazarr:/config
+      - Series:/storage/Series:rw
+      - Movies:/storage/Movies:rw
+    networks:
+      - mediaserver
+
+volumes:
+  bazarr:
+    external: true
+  Series:
+    external: true
+  Movies:
+    external: true
+
+networks:
+  mediaserver:
+    name: mediaserver
+    external: true

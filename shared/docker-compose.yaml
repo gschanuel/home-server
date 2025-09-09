@@ -1,0 +1,206 @@
+name: shared
+networks:
+  frontend:
+    name: frontend
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.18.0.0/16"
+      - subnet: "fd3c:fa11:c0de:1::/64"
+  services:
+    name: services
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.19.0.0/16"
+      - subnet: "fd3c:fa11:c0de:2::/64"
+  mediaserver:
+    name: mediaserver
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.20.0.0/16"
+      - subnet: "fd3c:fa11:c0de:3::/64"
+
+volumes:
+  postgresql:
+    name: postgresql
+    driver: local
+    driver_opts:
+      type: local
+      device: ${VOLUMES_BASE_PATH}/postgresql
+      o: bind,rw
+  gitea_data:
+    name: gitea_data
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/gitea
+        o: bind,rw
+  gitea_home:
+    name: gitea_home
+    driver: local
+    driver_opts:
+        type: none
+        device: /home/git/.ssh
+        o: bind,rw
+  vaultwarden:
+    name: vaultwarden
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/vaultwarden
+        o: bind,rw
+  Movies:
+    name: Movies
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Movies/
+      o: bind,rw
+  Series:
+    name: Series
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Series/
+      o: bind,rw
+  downloading:
+    name: downloading
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/.downloading/
+      o: bind,rw
+  Completed:
+    name: Completed
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Completed/
+      o: bind,rw
+  Pictures:
+    name: Pictures
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Pictures/
+      o: bind,rw
+  Downloads:
+    name: Downloads
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Downloads/
+      o: bind,rw
+  nextcloud-config:
+    name: nextcloud-config
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/nextcloud/config
+      o: bind,rw
+  nextcloud-data:
+    name: nextcloud-data
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/nextcloud/data
+      o: bind,rw
+  jellyfin:
+    name: jellyfin
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/jellyfin
+      o: bind,rw
+  bazarr:
+    name: bazarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/bazarr
+      o: bind,rw
+  deluge:
+    name: deluge
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/deluge
+      o: bind,rw
+  prowlarr:
+    name: prowlarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/prowlarr
+      o: bind,rw
+  radarr:
+    name: radarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/radarr
+      o: bind,rw
+  sonarr:
+    name: sonarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/sonarr
+      o: bind,rw
+  thelounge:
+    name: thelounge
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/thelounge
+      o: bind,rw
+  homeassistant:
+    name: homeassistant
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/homeassistant
+      o: bind,rw
+  ytdlp-config:
+    name: ytdlp-config
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/ytdlp/config
+      o: bind,rw
+  ytdlp-downloads:
+    name: ytdlp-downloads
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/ytdlp/downloads
+      o: bind,rw
+  stirling-pdf-configs:
+    name: stirling-pdf-configs
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/stirling-pdf/extraConfigs
+      o: bind,rw
+  stirling-pdf-logs:
+    name: stirling-pdf-logs
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/stirling-pdf/logs
+      o: bind,rw
+  librespeed:
+    name: librespeed
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/librespeed
+      o: bind,rw

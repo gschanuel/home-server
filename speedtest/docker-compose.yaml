@@ -1,0 +1,33 @@
+name: speedtest
+services:
+  speedtest:
+    container_name: speedtest
+    image: ghcr.io/librespeed/speedtest:latest
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.speedtest.tls=true"
+      - "traefik.http.routers.speedtest.entrypoints=websecure"
+      - "traefik.http.routers.speedtest.rule=Host(`speedtest.${DOMAIN}`)"
+      - "traefik.http.services.speedtest.loadbalancer.server.port=8080"
+    environment:
+      MODE: standalone
+      TITLE: "LibreSpeed"
+      TELEMETRY: "true"
+      ENABLE_ID_OBFUSCATION: "false"
+      REDACT_IP_ADDRESSES: "false"
+    volumes:
+      - librespeed:/database
+    networks:
+      - services
+
+volumes:
+  librespeed:
+    name: librespeed
+    external: true
+
+networks:
+  services:
+    name: services
+    external: true

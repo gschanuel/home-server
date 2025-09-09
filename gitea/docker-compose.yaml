@@ -1,0 +1,37 @@
+name: gitea
+services:
+  gitea:
+    image: gitea/gitea
+    container_name: gitea
+    restart: unless-stopped
+    env_file:
+      - ./.env
+      - ./secrets/db.conf.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea.rule=Host(`git.${DOMAIN}`)"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+    ports:
+      - 30222:22
+    environment:
+      - USER_UID=972
+      - USER_GID=972
+      - DISABLE_REGISTRATION=true
+    volumes:
+      - gitea_data:/data
+      - gitea_home:/data/git/.ssh
+    networks:
+      - services
+
+volumes:
+  gitea_data:
+    external: true
+  gitea_home:
+    external: true
+
+networks:
+  services:
+    name: services
+    external: true

@@ -1,0 +1,34 @@
+name: stirling-pdf
+services:
+  stirling-pdf:
+    image: frooodle/s-pdf
+    container_name: stirling-pdf
+    restart: unless-stopped
+    environment:
+      LANGS: pt_BR
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.pdf.tls=true"
+      - "traefik.http.routers.pdf.entrypoints=websecure"
+      - "traefik.http.routers.pdf.rule=Host(`pdf.${DOMAIN}`)"
+      - "traefik.http.services.pdf.loadbalancer.server.port=8080"
+    volumes:
+      - /usr/share/tessdata:/trainingData
+      - stirling-pdf-configs:/configs
+      - stirling-pdf-logs:/logs
+    networks:
+      - services
+
+volumes:
+  stirling-pdf-configs:
+    name: stirling-pdf-configs
+    external: true
+  stirling-pdf-logs:
+    name: stirling-pdf-logs
+    external: true
+
+networks:
+  services:
+    name: services
+    external: true

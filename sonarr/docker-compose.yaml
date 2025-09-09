@@ -1,0 +1,37 @@
+name: sonarr
+services:
+  sonarr:
+    container_name: sonarr
+    image: ghcr.io/onedr0p/sonarr:rolling
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.sonarr.tls=true"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: America/Sao_Paulo
+    volumes:
+      - sonarr:/config
+      - Series:/storage/Series:rw
+      - Completed:/storage/Completed:rw
+    networks:
+      - mediaserver
+
+volumes:
+  sonarr:
+    external: true
+  Series:
+    external: true
+  Completed:
+    external: true
+
+networks:
+  mediaserver:
+    name: mediaserver
+    external: true

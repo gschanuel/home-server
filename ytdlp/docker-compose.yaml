@@ -1,0 +1,32 @@
+name: ytdlp
+services:
+  ytdlp:
+    image: marcobaobao/yt-dlp-webui
+    container_name: ytdlp
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.youtube.tls=true"
+      - "traefik.http.routers.youtube.entrypoints=websecure"
+      - "traefik.http.routers.youtube.rule=Host(`youtube.${DOMAIN}`)"
+      - "traefik.http.services.youtube.loadbalancer.server.port=3033"
+    volumes:
+      - ytdlp-downloads:/downloads
+      - ytdlp-config:/config
+    networks:
+      - services
+
+volumes:
+  ytdlp-downloads:
+    name: ytdlp-downloads
+    external: true
+  ytdlp-config:
+    name: ytdlp-config
+    external: true 
+
+networks:
+  services:
+    name: services
+    external: true
