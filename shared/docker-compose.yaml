@@ -29,34 +29,6 @@ networks:
       - subnet: "fd3c:fa11:c0de:3::/64"
 
 volumes:
-  postgresql:
-    name: postgresql
-    driver: local
-    driver_opts:
-      type: local
-      device: ${VOLUMES_BASE_PATH}/postgresql
-      o: bind,rw
-  gitea_data:
-    name: gitea_data
-    driver: local
-    driver_opts:
-        type: none
-        device: ${VOLUMES_BASE_PATH}/gitea
-        o: bind,rw
-  gitea_home:
-    name: gitea_home
-    driver: local
-    driver_opts:
-        type: none
-        device: /home/git/.ssh
-        o: bind,rw
-  vaultwarden:
-    name: vaultwarden
-    driver: local
-    driver_opts:
-        type: none
-        device: ${VOLUMES_BASE_PATH}/vaultwarden
-        o: bind,rw
   Movies:
     name: Movies
     driver: local
@@ -99,6 +71,48 @@ volumes:
       type: none
       device: /media/Downloads/
       o: bind,rw
+  ytdlp-downloads:
+    name: ytdlp-downloads
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Downloads/youtube-dl/
+      o: bind,rw
+  ytdlp-config:
+    name: ytdlp-config
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/ytdlp/config
+      o: bind,rw
+  postgresql:
+    name: postgresql
+    driver: local
+    driver_opts:
+      type: local
+      device: ${VOLUMES_BASE_PATH}/postgresql
+      o: bind,rw
+  gitea_data:
+    name: gitea_data
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/gitea
+        o: bind,rw
+  gitea_home:
+    name: gitea_home
+    driver: local
+    driver_opts:
+        type: none
+        device: /home/git/.ssh
+        o: bind,rw
+  vaultwarden:
+    name: vaultwarden
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/vaultwarden
+        o: bind,rw
   nextcloud-config:
     name: nextcloud-config
     driver: local
@@ -168,20 +182,6 @@ volumes:
     driver_opts:
       type: none
       device: ${VOLUMES_BASE_PATH}/homeassistant
-      o: bind,rw
-  ytdlp-config:
-    name: ytdlp-config
-    driver: local
-    driver_opts:
-      type: none
-      device: ${VOLUMES_BASE_PATH}/ytdlp/config
-      o: bind,rw
-  ytdlp-downloads:
-    name: ytdlp-downloads
-    driver: local
-    driver_opts:
-      type: none
-      device: ${VOLUMES_BASE_PATH}/ytdlp/downloads
       o: bind,rw
   stirling-pdf-configs:
     name: stirling-pdf-configs

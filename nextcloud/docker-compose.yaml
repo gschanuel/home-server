@@ -11,7 +11,7 @@ services:
     image: nextcloud:fpm-alpine
     restart: unless-stopped
     group_add:
-      - 1000
+      - $(PGID)
     secrets:
       - nextcloud_db_passwd
       - nextcloud_admin_passwd
@@ -27,7 +27,7 @@ services:
       - POSTGRES_USER=nextcloud_user
       - POSTGRES_HOST=postgresql
       - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_passwd
-      - NEXTCLOUD_ADMIN_USER=admin2
+      - NEXTCLOUD_ADMIN_USER=admin
       - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_passwd
       - NEXTCLOUD_MAINTENANCE_WINDOW_START=1
       - NEXTCLOUD_DEFAULT_PHONE_REGION=BR
@@ -104,41 +104,25 @@ services:
 
 secrets:
   nextcloud_db_passwd:
-    file: /opt/docker-data/secrets/nextcloud_db_passwd.secret
+    file: ./secrets/nextcloud_db_passwd.secret
   nextcloud_admin_passwd:
-    file: /opt/docker-data/secrets/nextcloud_admin_passwd.secret
+    file: ./secrets/nextcloud_admin_passwd.secret
 
 volumes:
   nextcloud:
     name: nextcloud
   nextcloud-config:
     name: nextcloud-config
-    driver: local
-    driver_opts:
-      type: none
-      device: /opt/docker-data/nextcloud/config
-      o: bind,rw
+    external: true
   nextcloud-data:
     name: nextcloud-data
-    driver: local
-    driver_opts:
-      type: none
-      device: /opt/docker-data/nextcloud/data
-      o: bind,rw
+    external: true
   Pictures:
     name: Pictures
-    driver: local
-    driver_opts:
-      type: none
-      device: /media/Pictures/
-      o: bind,rw
+    external: true
   Downloads:
     name: Downloads
-    driver: local
-    driver_opts:
-      type: none
-      device: /media/Downloads/
-      o: bind,rw
+    external: true
   Movies:
     name: Movies
     external: true
@@ -157,8 +141,3 @@ networks:
     name: services
     external: true
 
-secrets:
-  nextcloud_db_passwd:
-    file: ${SECRETS_BASE_PATH}/nextcloud_db_passwd.secret
-  nextcloud_admin_passwd:
-    file: ${SECRETS_BASE_PATH}/nextcloud_admin_passwd.secret
