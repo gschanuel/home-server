@@ -12,10 +12,6 @@ services:
       - "traefik.http.routers.deluge.entrypoints=websecure"
       - "traefik.http.routers.deluge.rule=Host(`deluge.${DOMAIN}`)"
       - "traefik.http.services.deluge.loadbalancer.server.port=8112"
-    environment:
-      PUID: ${PUID}
-      PGID: ${PGID}
-      TZ: America/Sao_Paulo
     volumes:
       - deluge:/config
       - Movies:/storage/Movies:rw

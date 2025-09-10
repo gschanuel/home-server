@@ -13,9 +13,6 @@ services:
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
     environment:
-      PUID: ${PUID}
-      PGID: ${PGID}
-      TZ: America/Sao_Paulo
     group_add:
       - "989"
       - "985"
