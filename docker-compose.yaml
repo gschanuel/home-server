@@ -16,7 +16,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./extras/traefik:/dynamic
-      - ./secrets/${DOMAIN}_cert.secret:/config/${DOMAIN}_cert.secret:rw
+      - ${SECRETS_BASE_PATH}/${DOMAIN}_cert.secret:/config/${DOMAIN}_cert.secret:rw
     environment:
       # dynv6.com RFC2136 credentials
       - RFC2136_NAMESERVER=95.216.144.82
@@ -543,19 +543,19 @@ networks:
 
 secrets:
   traefik_dashboard_auth:
-    file: ./secrets/traefik_dashboard_auth.secret
+    file: ${SECRETS_BASE_PATH}/traefik_dashboard_auth.secret
   rfc2136_tsig_key:
-    file: ./secrets/rfc2136_tsig_key.secret
+    file: ${SECRETS_BASE_PATH}/rfc2136_tsig_key.secret
   rfc2136_tsig_algorithm:
-    file: ./secrets/rfc2136_tsig_algorithm.secret
+    file: ${SECRETS_BASE_PATH}/rfc2136_tsig_algorithm.secret
   rfc2136_tsig_secret:
-    file: ./secrets/rfc2136_tsig_secret.secret
+    file: ${SECRETS_BASE_PATH}/rfc2136_tsig_secret.secret
   postgres_passwd:
-    file: ./secrets/postgres_passwd.secret
+    file: ${SECRETS_BASE_PATH}/postgres_passwd.secret
   nextcloud_db_passwd:
-    file: ./secrets/nextcloud_db_passwd.secret
+    file: ${SECRETS_BASE_PATH}/nextcloud_db_passwd.secret
   nextcloud_admin_passwd:
-    file: ./secrets/nextcloud_admin_passwd.secret
+    file: ${SECRETS_BASE_PATH}/nextcloud_admin_passwd.secret
 
 volumes:
   Movies:
