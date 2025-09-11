@@ -7,12 +7,12 @@ services:
     ports:
       - 80:80
       - 443:443
-    environment:
-      - CERT_NAME=${DOMAIN}
+    # environment:
+    #   - CERT_NAME=${DOMAIN}
     volumes:
       - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
-      - ${SECRETS_BASE_PATH}/${DOMAIN}_fullchain.secret:/etc/nginx/certs/${DOMAIN}.crt:ro
-      - ${SECRETS_BASE_PATH}/${DOMAIN}_privkey.secret:/etc/nginx/certs/${DOMAIN}.key:ro
+      - ${SECRETS_BASE_PATH}/${DOMAIN}_fullchain.secret:/etc/nginx/certs/default.crt:ro
+      - ${SECRETS_BASE_PATH}/${DOMAIN}_privkey.secret:/etc/nginx/certs/default.key:ro
       - /var/run/docker.sock:/tmp/docker.sock:ro
       #- /opt/docker-data/nginx_proxy-config/htpasswd:/etc/nginx/htpasswd
 
@@ -28,6 +28,7 @@ services:
     user: ${PUID}:${PGID}
     environment:
       - VIRTUAL_SERVER=whoami.${DOMAIN}
+      - VIRTUAL_PORT=80
     networks:
       - services
 
