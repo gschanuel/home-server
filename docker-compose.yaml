@@ -121,7 +121,7 @@ services:
     secrets:
       - postgres_passwd
     environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_passwd
     volumes:
       - postgresql:/var/lib/postgresql/data
     networks:
@@ -200,11 +200,11 @@ services:
       - "traefik.http.routers.speedtest.rule=Host(`speedtest.${DOMAIN}`)"
       - "traefik.http.services.speedtest.loadbalancer.server.port=8080"
     environment:
-      MODE: standalone
-      TITLE: "LibreSpeed"
-      TELEMETRY: "true"
-      ENABLE_ID_OBFUSCATION: "false"
-      REDACT_IP_ADDRESSES: "false"
+      - MODE=standalone
+      - TITLE=LibreSpeed
+      - TELEMETRY=true
+      - ENABLE_ID_OBFUSCATION=false
+      - REDACT_IP_ADDRESSES=false
     volumes:
       - librespeed:/database
     networks:
@@ -233,7 +233,7 @@ services:
     container_name: stirling-pdf
     restart: unless-stopped
     environment:
-      LANGS: pt_BR
+      - LANGS=pt_BR
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -386,8 +386,8 @@ services:
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
     group_add:
-      - "989"
-      - "985"
+      - 989
+      - 985
     devices:
       - /dev/dri:/dev/dri
       - /dev/dri/renderD128:/dev/dri/renderD128
@@ -486,9 +486,9 @@ services:
       - "traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN}`)"
       - "traefik.http.services.flaresolverr.loadbalancer.server.port=8191"
     environment:
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_HTML: ${LOG_HTML:-false}
-      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
     networks:
       - mediaserver
 
@@ -520,8 +520,8 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: "172.18.0.0/16"
-      - subnet: "fd3c:fa11:c0de:1::/64"
+      - subnet: 172.18.0.0/16
+      - subnet: fd3c:fa11:c0de:1::/64
   services:
     name: services
     enable_ipv6: true
@@ -529,8 +529,8 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: "172.19.0.0/16"
-      - subnet: "fd3c:fa11:c0de:2::/64"
+      - subnet: 172.19.0.0/16
+      - subnet: fd3c:fa11:c0de:2::/64
   mediaserver:
     name: mediaserver
     enable_ipv6: true
