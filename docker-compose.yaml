@@ -1,0 +1,737 @@
+name: home-server
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./extras/traefik:/dynamic
+      - ./secrets/${DOMAIN}_cert.secret:/config/${DOMAIN}_cert.secret:rw
+    environment:
+      # dynv6.com RFC2136 credentials
+      - RFC2136_NAMESERVER=95.216.144.82
+      - RFC2136_TSIG_KEY_FILE=/run/secrets/rfc2136_tsig_key
+      - RFC2136_TSIG_ALGORITHM_FILE=/run/secrets/rfc2136_tsig_algorithm
+      - RFC2136_TSIG_SECRET_FILE=/run/secrets/rfc2136_tsig_secret
+    secrets:
+      - traefik_dashboard_auth
+      - rfc2136_tsig_key
+      - rfc2136_tsig_algorithm
+      - rfc2136_tsig_secret
+    command:
+      #- --serverstransport.insecureskipverify=true
+      # EntryPoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+
+      # Attach the static configuration tls.yaml
+      # That contains the external generated tls paths
+      # When configured, this will be the fallback TLS configuration
+      # - "--providers.file.filename=/dynamic/tls.yaml"
+
+      # ACME Configuration using RFC2136 DNS Challenge with dynv6.com
+      - "--entrypoints.websecure.http.tls.certResolver=rfc2136"
+      - "--certificatesresolvers.rfc2136.acme.dnschallenge=true"
+      - "--certificatesresolvers.rfc2136.acme.dnschallenge.provider=rfc2136"
+      # Use Let's Encrypt staging environment for testing to avoid hitting rate limits
+      # Comment the following line when you are ready to go live
+      # - "--certificatesresolvers.rfc2136.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.rfc2136.acme.email=${EMAIL}"
+      - "--certificatesresolvers.rfc2136.acme.storage=/config/${DOMAIN}_cert.secret"
+      # resolvers ns1.dynv6.com and ns2.dynv6.com
+      - "--certificatesresolvers.rfc2136.acme.dnsChallenge.resolvers=95.216.144.82, 5.45.100.251"
+      - "--certificatesresolvers.rfc2136.acme.dnsChallenge.propagation.delayBeforeChecks=30"
+
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=frontend"
+
+      # API & Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+
+      # Observability
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+
+  # Traefik Dynamic configuration via Docker labels
+    labels:
+      # Enable self‑routing
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      # Dashboard router
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.tls=true"
+
+      # Basic‑auth middleware
+      # https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/#configuration-examples
+      - "traefik.http.middlewares.dashboard-auth.basicauth.usersFile=/run/secrets/traefik_dashboard_auth"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth@docker"
+
+      # TLS Options
+      # Generate a single wildcard certificate for your domain and all its subdomains
+      - "traefik.tls.stores.default.defaultgeneratedcert.resolver=rfc2136"
+      - "traefik.tls.stores.default.defaultgeneratedcert.domain.main=*.${DOMAIN}"
+      # - "traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${DOMAIN}"
+    networks:
+     # Connect to the 'frontend' overlay network for inter-container communication across nodes
+     # Also connect to the 'services' network to route traffic to backend services
+     # Connect to the 'mediaserver' network to route traffic to media services
+      - frontend
+      - services
+      - mediaserver
+
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls=true"
+    networks:
+      - services
+
+  postgresql:
+    image: postgres:13
+    container_name: postgresql
+    restart: unless-stopped
+    secrets:
+      - postgres_passwd
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+    networks:
+      - services
+
+  gitea:
+    image: gitea/gitea
+    container_name: gitea
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+    env_file:
+      - ./.env
+      - ./secrets/gitea_db.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea.rule=Host(`git.${DOMAIN}`)"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+    ports:
+      - 30222:22
+    environment:
+      - USER_UID=972
+      - USER_GID=972
+      - DISABLE_REGISTRATION=true
+    volumes:
+      - gitea_data:/data
+      - gitea_home:/data/git/.ssh
+    networks:
+      - services
+
+  vaultwarden:
+    image: ghcr.io/timshel/vaultwarden
+    container_name: vaultwarden
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.vaultwarden.tls=true"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${DOMAIN}`)"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+    volumes:
+      - vaultwarden:/data
+    networks:
+      - services
+
+  thelounge:
+    image: thelounge/thelounge
+    container_name: thelounge
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.thelounge.tls=true"
+      - "traefik.http.routers.thelounge.entrypoints=websecure"
+      - "traefik.http.routers.thelounge.rule=Host(`thelounge.${DOMAIN}`)"
+      - "traefik.http.services.thelounge.loadbalancer.server.port=9000"
+    volumes:
+      - thelounge:/var/opt/thelounge
+    networks:
+      - services
+
+  speedtest:
+    container_name: speedtest
+    image: ghcr.io/librespeed/speedtest:latest
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.speedtest.tls=true"
+      - "traefik.http.routers.speedtest.entrypoints=websecure"
+      - "traefik.http.routers.speedtest.rule=Host(`speedtest.${DOMAIN}`)"
+      - "traefik.http.services.speedtest.loadbalancer.server.port=8080"
+    environment:
+      MODE: standalone
+      TITLE: "LibreSpeed"
+      TELEMETRY: "true"
+      ENABLE_ID_OBFUSCATION: "false"
+      REDACT_IP_ADDRESSES: "false"
+    volumes:
+      - librespeed:/database
+    networks:
+      - services
+
+  ytdlp:
+    image: marcobaobao/yt-dlp-webui
+    container_name: ytdlp
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.youtube.tls=true"
+      - "traefik.http.routers.youtube.entrypoints=websecure"
+      - "traefik.http.routers.youtube.rule=Host(`youtube.${DOMAIN}`)"
+      - "traefik.http.services.youtube.loadbalancer.server.port=3033"
+    volumes:
+      - ytdlp-downloads:/downloads
+      - ytdlp-config:/config
+    networks:
+      - services
+
+  stirling-pdf:
+    image: frooodle/s-pdf
+    container_name: stirling-pdf
+    restart: unless-stopped
+    environment:
+      LANGS: pt_BR
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.pdf.tls=true"
+      - "traefik.http.routers.pdf.entrypoints=websecure"
+      - "traefik.http.routers.pdf.rule=Host(`pdf.${DOMAIN}`)"
+      - "traefik.http.services.pdf.loadbalancer.server.port=8080"
+    volumes:
+      - /usr/share/tessdata:/trainingData
+      - stirling-pdf-configs:/configs
+      - stirling-pdf-logs:/logs
+    networks:
+      - services
+
+  redis:
+    container_name: nextcloud-redis
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - services
+
+  app:
+    container_name: nextcloud-app
+    image: nextcloud:fpm-alpine
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+      - redis
+    group_add:
+      - ${PGID}
+    secrets:
+      - nextcloud_db_passwd
+      - nextcloud_admin_passwd
+    environment:
+      - REDIS_HOST=redis
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITEHOST=nextcloud.${DOMAIN}
+      - TRUSTED_PROXIES=172.19.0.0/16 172.20.0.0/16
+      - PHP_MEMORY_LIMIT=8G
+      - PHP_UPLOAD_LIMIT=8G
+      - POST_MAX_SIZE=8G
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud_user
+      - POSTGRES_HOST=postgresql
+      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_passwd
+      - NEXTCLOUD_ADMIN_USER=admin
+      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_passwd
+      - NEXTCLOUD_MAINTENANCE_WINDOW_START=1
+      - NEXTCLOUD_DEFAULT_PHONE_REGION=BR
+    volumes:
+      - nextcloud:/var/www/html
+      - nextcloud-config:/var/www/html/config:z
+      - nextcloud-data:/var/www/html/data
+      - ./extras/nextcloud/group:/etc/group
+      - Movies:/media/Movies
+      - Series:/media/Series
+      - Pictures:/Photos
+      - Completed:/media/Completed
+      - downloading:/media/downloading
+      - Downloads:/media/Downloads
+    networks:
+      - services
+
+  web:
+    image: nginx:alpine-slim
+    container_name: nextcloud-web
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.${DOMAIN}`)"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud_redirectregex@docker,nextcloud-header@docker"
+      - "traefik.http.middlewares.nextcloud_redirectregex.redirectregex.permanent=true"
+      - "traefik.http.middlewares.nextcloud_redirectregex.redirectregex.regex=https://(.*)/.well-known/(?:card|cal)dav"
+      - "traefik.http.middlewares.nextcloud_redirectregex.redirectregex.replacement=https://$${1}/remote.php/dav"
+      - "traefik.http.middlewares.nextcloud-header.headers.referrerPolicy=no-referrer"
+      - "traefik.http.middlewares.nextcloud-header.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.nextcloud-header.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.nextcloud-header.headers.stsPreload=true"
+      - "traefik.http.middlewares.nextcloud-header.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.nextcloud-header.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.nextcloud-header.headers.customRequestHeaders.X-Forwarded-Proto=https"
+    volumes:
+      - nextcloud:/var/www/html
+      - nextcloud-config:/var/www/html/config
+      - ./extras/nextcloud/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
+    depends_on:
+      - app
+    networks:
+      - services
+
+  cron:
+    container_name: nextcloud-cron
+    image: nextcloud:fpm-alpine
+    restart: unless-stopped
+    group_add:
+      - ${PGID}
+    volumes:
+      - nextcloud:/var/www/html
+      - nextcloud-config:/var/www/html/config
+      - ./extras/nextcloud/group:/etc/group
+      - nextcloud-data:/var/www/html/data
+      - Movies:/media/Movies
+      - Series:/media/Series
+      - Pictures:/Photos
+      - Completed:/media/Completed
+      - downloading:/media/downloading
+      - Downloads:/media/Downloads
+    entrypoint: /cron.sh
+    depends_on:
+      - redis
+    networks:
+      - services
+
+  deluge:
+    container_name: deluge
+    image: lscr.io/linuxserver/deluge:latest
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.deluge.tls=true"
+      - "traefik.http.routers.deluge.entrypoints=websecure"
+      - "traefik.http.routers.deluge.rule=Host(`deluge.${DOMAIN}`)"
+      - "traefik.http.services.deluge.loadbalancer.server.port=8112"
+    volumes:
+      - deluge:/config
+      - Movies:/storage/Movies:rw
+      - Series:/storage/Series:rw
+      - Completed:/storage/Completed:rw
+      - downloading:/storage/.downloading:rw
+    networks:
+      - mediaserver
+
+  jellyfin:
+    container_name: jellyfin
+    image: jellyfin/jellyfin
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.jellyfin.tls=true"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+    group_add:
+      - "989"
+      - "985"
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    volumes:
+      - jellyfin:/config
+      - /media/Downloads/jellyfin_metadata/metadata/:/config/metadata/
+      - Movies:/storage/Movies:rw
+      - Series:/storage/Series:rw
+      - Completed:/storage/Completed:rw
+    networks:
+      - mediaserver
+
+  prowlarr:
+    container_name: prowlarr
+    image: lscr.io/linuxserver/prowlarr:latest
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.prowlarr.tls=true"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+    volumes:
+      - prowlarr:/config
+    networks:
+      - mediaserver
+
+  radarr:
+    container_name: radarr
+    image: ghcr.io/onedr0p/radarr:rolling
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.radarr.tls=true"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+    volumes:
+      - radarr:/config
+      - Movies:/storage/Movies:rw
+      - Completed:/storage/Completed:rw
+    networks:
+      - mediaserver
+
+  sonarr:
+    container_name: sonarr
+    image: ghcr.io/onedr0p/sonarr:rolling
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.sonarr.tls=true"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+    volumes:
+      - sonarr:/config
+      - Series:/storage/Series:rw
+      - Completed:/storage/Completed:rw
+    networks:
+      - mediaserver
+
+  bazarr:
+    container_name: bazarr
+    image: ghcr.io/onedr0p/bazarr:rolling
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.bazarr.tls=true"
+      - "traefik.http.routers.bazarr.entrypoints=websecure"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN}`)"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+    volumes:
+      - bazarr:/config
+      - Series:/storage/Series:rw
+      - Movies:/storage/Movies:rw
+    networks:
+      - mediaserver
+
+  flaresolverr:
+    container_name: flaresolverr
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=mediaserver"
+      - "traefik.http.routers.flaresolverr.entrypoints=websecure"
+      - "traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN}`)"
+      - "traefik.http.services.flaresolverr.loadbalancer.server.port=8191"
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_HTML: ${LOG_HTML:-false}
+      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
+    networks:
+      - mediaserver
+
+  homeassistant:
+    image: ghcr.io/onedr0p/home-assistant:rolling
+    container_name: homeassistant
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    volumes:
+      - homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    privileged: true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.homeassistant.tls=true"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+    networks:
+      - mediaserver
+      - services
+
+networks:
+  frontend:
+    name: frontend
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.18.0.0/16"
+      - subnet: "fd3c:fa11:c0de:1::/64"
+  services:
+    name: services
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.19.0.0/16"
+      - subnet: "fd3c:fa11:c0de:2::/64"
+  mediaserver:
+    name: mediaserver
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: "172.20.0.0/16"
+      - subnet: "fd3c:fa11:c0de:3::/64"
+
+secrets:
+  traefik_dashboard_auth:
+    file: ./secrets/traefik_dashboard_auth.secret
+  rfc2136_tsig_key:
+    file: ./secrets/rfc2136_tsig_key.secret
+  rfc2136_tsig_algorithm:
+    file: ./secrets/rfc2136_tsig_algorithm.secret
+  rfc2136_tsig_secret:
+    file: ./secrets/rfc2136_tsig_secret.secret
+  postgres_passwd:
+    file: ./secrets/postgres_passwd.secret
+  nextcloud_db_passwd:
+    file: ./secrets/nextcloud_db_passwd.secret
+  nextcloud_admin_passwd:
+    file: ./secrets/nextcloud_admin_passwd.secret
+
+volumes:
+  Movies:
+    name: Movies
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Movies/
+      o: bind,rw
+  Series:
+    name: Series
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Series/
+      o: bind,rw
+  downloading:
+    name: downloading
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/.downloading/
+      o: bind,rw
+  Completed:
+    name: Completed
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Completed/
+      o: bind,rw
+  Pictures:
+    name: Pictures
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Pictures/
+      o: bind,rw
+  Downloads:
+    name: Downloads
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Downloads/
+      o: bind,rw
+  ytdlp-downloads:
+    name: ytdlp-downloads
+    driver: local
+    driver_opts:
+      type: none
+      device: /media/Downloads/youtube-dl/
+      o: bind,rw
+  ytdlp-config:
+    name: ytdlp-config
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/ytdlp/config
+      o: bind,rw
+  postgresql:
+    name: postgresql
+    driver: local
+    driver_opts:
+      type: local
+      device: ${VOLUMES_BASE_PATH}/postgresql
+      o: bind,rw
+  gitea_data:
+    name: gitea_data
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/gitea
+        o: bind,rw
+  gitea_home:
+    name: gitea_home
+    driver: local
+    driver_opts:
+        type: none
+        device: /home/git/.ssh
+        o: bind,rw
+  vaultwarden:
+    name: vaultwarden
+    driver: local
+    driver_opts:
+        type: none
+        device: ${VOLUMES_BASE_PATH}/vaultwarden
+        o: bind,rw
+  nextcloud:
+    name: nextcloud
+  nextcloud-config:
+    name: nextcloud-config
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/nextcloud/config
+      o: bind,rw
+  nextcloud-data:
+    name: nextcloud-data
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/nextcloud/data
+      o: bind,rw
+  jellyfin:
+    name: jellyfin
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/jellyfin
+      o: bind,rw
+  bazarr:
+    name: bazarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/bazarr
+      o: bind,rw
+  deluge:
+    name: deluge
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/deluge
+      o: bind,rw
+  prowlarr:
+    name: prowlarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/prowlarr
+      o: bind,rw
+  radarr:
+    name: radarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/radarr
+      o: bind,rw
+  sonarr:
+    name: sonarr
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/sonarr
+      o: bind,rw
+  thelounge:
+    name: thelounge
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/thelounge
+      o: bind,rw
+  homeassistant:
+    name: homeassistant
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/homeassistant
+      o: bind,rw
+  stirling-pdf-configs:
+    name: stirling-pdf-configs
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/stirling-pdf/extraConfigs
+      o: bind,rw
+  stirling-pdf-logs:
+    name: stirling-pdf-logs
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/stirling-pdf/logs
+      o: bind,rw
+  librespeed:
+    name: librespeed
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOLUMES_BASE_PATH}/librespeed
+      o: bind,rw
