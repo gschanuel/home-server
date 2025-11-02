@@ -103,28 +103,78 @@ Você **não precisa** criar os bancos de dados manualmente. O serviço `postgre
 
 ## Como Usar
 
+
+
 Com todas as configurações concluídas, você pode gerenciar toda a pilha com os seguintes comandos:
+
+
 
 ### Iniciar Todos os Serviços
 
+
+
 ```bash
+
 docker-compose up -d
+
 ```
+
+
+
+### Iniciando Serviços Específicos
+
+
+
+Se você não quiser iniciar todos os serviços de uma vez, pode especificar quais serviços iniciar. O Docker Compose é inteligente e iniciará automaticamente quaisquer dependências (`depends_on`) que esses serviços necessitem.
+
+
+
+Por exemplo, para iniciar apenas o Nextcloud e o Gitea, você pode executar:
+
+
+
+```bash
+
+docker-compose up -d web gitea
+
+```
+
+
+
+Este comando irá iniciar os serviços `web` (que compõe o Nextcloud) e `gitea`, e também iniciará automaticamente suas dependências como `app`, `postgresql`, `redis` e `traefik`.
+
+
 
 ### Parar Todos os Serviços
 
+
+
 ```bash
+
 docker-compose down
+
 ```
+
+
 
 ### Visualizar Logs de um Serviço
 
+
+
 Isso é extremamente útil para depurar problemas durante a inicialização ou operação.
 
+
+
 ```bash
+
 docker-compose logs -f <nome_do_servico>
+
 # Exemplo para ver os logs do Nextcloud:
+
 docker-compose logs -f app
+
 # Exemplo para ver os logs do Traefik:
+
 docker-compose logs -f traefik
+
 ```
