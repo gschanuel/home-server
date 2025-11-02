@@ -353,6 +353,61 @@ services:
     networks:
       - services
 
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    restart: unless-stopped
+    container_name: speedtest-tracker
+    env_file:
+      - ./.env
+    secrets:
+      - speedtest_tracker_db_passwd
+      - speedtest_tracker_app_key
+    environment:
+        - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
+        - DB_CONNECTION=pgsql
+        - DB_HOST=postgresql
+        - DB_PORT=5432
+        - ADMIN_EMAIL=${EMAIL}
+        - DB_DATABASE=speedtest_tracker
+        - DB_USERNAME=speedtest_tracker
+        - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
+        - APP_TIMEZONE=America/Sao_Paulo
+        - DISPLAY_TIMEZONE=America/Sao_Paulo
+        - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
+        - SPEEDTEST_SCHEDULE="17 * * * *"
+    labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=services"
+    - "traefik.http.routers.speedtest-tracker.tls=true"
+    - "traefik.http.routers.speedtest-tracker.entrypoints=websecure"
+    - "traefik.http.routers.speedtest-tracker.rule=Host(`speedtest-tracker.${DOMAIN}`)"
+    - "traefik.http.services.speedtest-tracker.loadbalancer.server.port=80"
+    # volumes:
+    #     - speedtest_tracker:/config
+    depends_on:
+        - postgresql
+    networks:
+        - services
+
+  smtp:
+    image: registry.gitlab.com/egos-tech/smtp:latest
+    container_name: smtp
+    restart: always
+    secrets:
+      - gmail_passwd
+    # ports:
+    #  - "25:25"
+    environment:
+      # MUST start with `:`
+      # if acting as a relay this or RELAY_DOMAINS must be filled out or incoming mail will be rejected
+      RELAY_NETWORKS: :172.19.0.0/16:172.20.0.0/16
+      # what domains should be accepted to forward to lower distance MX server.
+      RELAY_DOMAINS: 'gmail.com'
+      GMAIL_USER: ${EMAIL}
+      GMAIL_PASSWORD_FILE: /run/secrets/gmail_passwd
+    networks:
+      - services
+
   deluge:
     container_name: deluge
     image: lscr.io/linuxserver/deluge:latest
@@ -557,6 +612,12 @@ secrets:
     file: ${SECRETS_BASE_PATH}/nextcloud_db_passwd.secret
   nextcloud_admin_passwd:
     file: ${SECRETS_BASE_PATH}/nextcloud_admin_passwd.secret
+  gmail_passwd:
+    file: ${SECRETS_BASE_PATH}/gmail.secret
+  speedtest_tracker_db_passwd:
+    file: ${SECRETS_BASE_PATH}/speedtest-tracker_db_passwd.secret
+  speedtest_tracker_app_key:
+    file: ${SECRETS_BASE_PATH}/speedtest-tracker_app_key.secret
 
 volumes:
   Movies:
