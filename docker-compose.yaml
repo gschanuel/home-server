@@ -122,6 +122,7 @@ services:
       - postgres_passwd
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
+      TZ: America/Sao_Paulo
     volumes:
       - postgresql:/var/lib/postgresql/data
     networks:
@@ -135,7 +136,7 @@ services:
       - postgresql
     env_file:
       - ./.env
-      - ./secrets/gitea_db.env
+      - ${SECRETS_BASE_PATH}/gitea.env
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
