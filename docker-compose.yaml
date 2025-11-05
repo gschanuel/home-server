@@ -19,10 +19,10 @@ services:
       - ${SECRETS_BASE_PATH}/${DOMAIN}_cert.secret:/config/${DOMAIN}_cert.secret:rw
     environment:
       # dynv6.com RFC2136 credentials
-      - RFC2136_NAMESERVER=95.216.144.82
-      - RFC2136_TSIG_KEY_FILE=/run/secrets/rfc2136_tsig_key
-      - RFC2136_TSIG_ALGORITHM_FILE=/run/secrets/rfc2136_tsig_algorithm
-      - RFC2136_TSIG_SECRET_FILE=/run/secrets/rfc2136_tsig_secret
+      RFC2136_NAMESERVER: 95.216.144.82
+      RFC2136_TSIG_KEY_FILE: /run/secrets/rfc2136_tsig_key
+      RFC2136_TSIG_ALGORITHM_FILE: /run/secrets/rfc2136_tsig_algorithm
+      RFC2136_TSIG_SECRET_FILE: /run/secrets/rfc2136_tsig_secret
     secrets:
       - traefik_dashboard_auth
       - rfc2136_tsig_key
@@ -151,9 +151,9 @@ services:
     ports:
       - 30222:22
     environment:
-      - USER_UID=972
-      - USER_GID=972
-      - DISABLE_REGISTRATION=true
+      USER_UID: 972
+      USER_GID: 972
+      DISABLE_REGISTRATION: true
     volumes:
       - gitea_data:/data
       - gitea_home:/data/git/.ssh
@@ -287,21 +287,21 @@ services:
       - nextcloud_db_passwd
       - nextcloud_admin_passwd
     environment:
-      - REDIS_HOST=redis
-      - OVERWRITEPROTOCOL=https
-      - OVERWRITEHOST=nextcloud.${DOMAIN}
-      - TRUSTED_PROXIES=172.19.0.0/16 172.20.0.0/16
-      - PHP_MEMORY_LIMIT=8G
-      - PHP_UPLOAD_LIMIT=8G
-      - POST_MAX_SIZE=8G
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=nextcloud_user
-      - POSTGRES_HOST=postgresql
-      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_passwd
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_passwd
-      - NEXTCLOUD_MAINTENANCE_WINDOW_START=1
-      - NEXTCLOUD_DEFAULT_PHONE_REGION=BR
+      REDIS_HOST: redis
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.${DOMAIN}
+      TRUSTED_PROXIES: 172.19.0.0/16 172.20.0.0/16
+      PHP_MEMORY_LIMIT: 8G
+      PHP_UPLOAD_LIMIT: 8G
+      POST_MAX_SIZE: 8G
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_HOST: postgresql
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_passwd
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_passwd
+      NEXTCLOUD_MAINTENANCE_WINDOW_START: 1
+      NEXTCLOUD_DEFAULT_PHONE_REGION: BR
     volumes:
       - nextcloud:/var/www/html
       - nextcloud-config:/var/www/html/config:z
@@ -383,18 +383,18 @@ services:
       - speedtest_tracker_db_passwd
       - speedtest_tracker_app_key
     environment:
-      - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
-      - DB_CONNECTION=pgsql
-      - DB_HOST=postgresql
-      - DB_PORT=5432
-      - ADMIN_EMAIL=${EMAIL}
-      - DB_DATABASE=speedtest_tracker
-      - DB_USERNAME=speedtest_tracker
-      - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
-      - APP_TIMEZONE=America/Sao_Paulo
-      - DISPLAY_TIMEZONE=America/Sao_Paulo
-      - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
-      - SPEEDTEST_SCHEDULE="17 * * * *"
+      FILE__APP_KEY: /var/run/secrets/speedtest_tracker_app_key
+      DB_CONNECTION: pgsql
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      ADMIN_EMAIL: ${EMAIL}
+      DB_DATABASE: speedtest_tracker
+      DB_USERNAME: speedtest_tracker
+      FILE__DB_PASSWORD: /var/run/secrets/speedtest_tracker_db_passwd
+      APP_TIMEZONE: America/Sao_Paulo
+      DISPLAY_TIMEZONE: America/Sao_Paulo
+      SPEEDTEST_BLOCKED_SERVERS: "69547,71619"
+      SPEEDTEST_SCHEDULE: "17 * * * *"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
