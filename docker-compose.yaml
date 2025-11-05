@@ -26,6 +26,8 @@ services:
     container_name: whoami
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=whoami.${DOMAIN}
       - VIRTUAL_PORT=80
@@ -38,8 +40,6 @@ services:
     restart: unless-stopped
     secrets:
       - postgres_passwd
-    depends_on:
-      - nginx-proxy
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
       TZ: America/Sao_Paulo
@@ -54,7 +54,7 @@ services:
     restart: unless-stopped
     depends_on:
       - postgresql
-      - traefik
+      - nginx-proxy
     env_file:
       - ./.env
       - ./secrets/gitea_db.env
@@ -77,6 +77,8 @@ services:
     container_name: vaultwarden
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=vaultwarden.${DOMAIN}
       - VIRTUAL_PORT=80
@@ -90,6 +92,8 @@ services:
     container_name: thelounge
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=thelounge.${DOMAIN}
       - VIRTUAL_PORT=9000
@@ -102,6 +106,8 @@ services:
     container_name: speedtest
     image: ghcr.io/librespeed/speedtest:latest
     restart: unless-stopped
+    depends_on:
+      - nginx-proxy
     environment:
       - MODE=standalone
       - TITLE=LibreSpeed
@@ -120,6 +126,8 @@ services:
     container_name: ytdlp
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=youtube.${DOMAIN}
       - VIRTUAL_PORT=3033
@@ -133,6 +141,8 @@ services:
     image: frooodle/s-pdf
     container_name: stirling-pdf
     restart: unless-stopped
+    depends_on:
+      - nginx-proxy
     environment:
       - LANGS=pt_BR
       - VIRTUAL_HOST=pdf.${DOMAIN}
@@ -149,7 +159,7 @@ services:
     image: redis:alpine
     restart: unless-stopped
     depends_on:
-      - traefik
+      - nginx-proxy
     networks:
       - services
 
@@ -160,7 +170,7 @@ services:
     depends_on:
       - postgresql
       - redis
-      - traefik
+      - nginx-proxy
     group_add:
       - ${PGID}
     secrets:
@@ -210,7 +220,7 @@ services:
       - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
     depends_on:
       - app
-      - traefik
+      - nginx-proxy
     networks:
       - services
 
@@ -234,7 +244,7 @@ services:
     entrypoint: /cron.sh
     depends_on:
       - redis
-      - traefik
+      - nginx-proxy
     networks:
       - services
 
@@ -266,7 +276,7 @@ services:
     #     - speedtest_tracker:/config
     depends_on:
         - postgresql
-        - traefik
+        - nginx-proxy
     networks:
         - services
 
@@ -277,7 +287,7 @@ services:
     secrets:
       - gmail_passwd
     depends_on:
-      - traefik
+      - nginx-proxy
     # ports:
     #  - "25:25"
     environment:
@@ -296,6 +306,8 @@ services:
     image: lscr.io/linuxserver/deluge:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=deluge.${DOMAIN}
       - VIRTUAL_PORT=8112
@@ -315,6 +327,8 @@ services:
     image: jellyfin/jellyfin
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=jellyfin.${DOMAIN}
       - VIRTUAL_PORT=8096
@@ -338,6 +352,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=prowlarr.${DOMAIN}
       - VIRTUAL_PORT=9696
@@ -351,6 +367,8 @@ services:
     image: ghcr.io/onedr0p/radarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=radarr.${DOMAIN}
       - VIRTUAL_PORT=7878
@@ -366,6 +384,8 @@ services:
     image: ghcr.io/onedr0p/sonarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=sonarr.${DOMAIN}
       - VIRTUAL_PORT=8989
@@ -381,6 +401,8 @@ services:
     image: ghcr.io/onedr0p/bazarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - VIRTUAL_HOST=bazarr.${DOMAIN}
       - VIRTUAL_PORT=6767
@@ -396,6 +418,8 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - nginx-proxy
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_HTML=${LOG_HTML:-false}
@@ -411,7 +435,7 @@ services:
     restart: unless-stopped
     user: ${PUID}:${PGID}
     depends_on:
-      - traefik
+      - nginx-proxy
     volumes:
       - homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
