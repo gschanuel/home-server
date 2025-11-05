@@ -38,8 +38,11 @@ services:
     restart: unless-stopped
     secrets:
       - postgres_passwd
+    depends_on:
+      - traefik
     environment:
-      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_passwd
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
+      TZ: America/Sao_Paulo
     volumes:
       - postgresql:/var/lib/postgresql/data
     networks:
@@ -51,6 +54,7 @@ services:
     restart: unless-stopped
     depends_on:
       - postgresql
+      - traefik
     env_file:
       - ./.env
       - ./secrets/gitea_db.env
@@ -144,6 +148,8 @@ services:
     container_name: nextcloud-redis
     image: redis:alpine
     restart: unless-stopped
+    depends_on:
+      - traefik
     networks:
       - services
 
@@ -154,6 +160,7 @@ services:
     depends_on:
       - postgresql
       - redis
+      - traefik
     group_add:
       - ${PGID}
     secrets:
@@ -203,6 +210,7 @@ services:
       - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
     depends_on:
       - app
+      - traefik
     networks:
       - services
 
@@ -226,6 +234,65 @@ services:
     entrypoint: /cron.sh
     depends_on:
       - redis
+      - traefik
+    networks:
+      - services
+
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    restart: unless-stopped
+    container_name: speedtest-tracker
+    env_file:
+      - ./.env
+    secrets:
+      - speedtest_tracker_db_passwd
+      - speedtest_tracker_app_key
+    environment:
+        - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
+        - DB_CONNECTION=pgsql
+        - DB_HOST=postgresql
+        - DB_PORT=5432
+        - ADMIN_EMAIL=${EMAIL}
+        - DB_DATABASE=speedtest_tracker
+        - DB_USERNAME=speedtest_tracker
+        - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
+        - APP_TIMEZONE=America/Sao_Paulo
+        - DISPLAY_TIMEZONE=America/Sao_Paulo
+        - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
+        - SPEEDTEST_SCHEDULE="17 * * * *"
+    labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=services"
+    - "traefik.http.routers.speedtest-tracker.tls=true"
+    - "traefik.http.routers.speedtest-tracker.entrypoints=websecure"
+    - "traefik.http.routers.speedtest-tracker.rule=Host(`speedtest-tracker.${DOMAIN}`)"
+    - "traefik.http.services.speedtest-tracker.loadbalancer.server.port=80"
+    # volumes:
+    #     - speedtest_tracker:/config
+    depends_on:
+        - postgresql
+        - traefik
+    networks:
+        - services
+
+  smtp:
+    image: registry.gitlab.com/egos-tech/smtp:latest
+    container_name: smtp
+    restart: always
+    secrets:
+      - gmail_passwd
+    depends_on:
+      - traefik
+    # ports:
+    #  - "25:25"
+    environment:
+      # MUST start with `:`
+      # if acting as a relay this or RELAY_DOMAINS must be filled out or incoming mail will be rejected
+      RELAY_NETWORKS: :172.19.0.0/16:172.20.0.0/16
+      # what domains should be accepted to forward to lower distance MX server.
+      RELAY_DOMAINS: 'gmail.com'
+      GMAIL_USER: ${EMAIL}
+      GMAIL_PASSWORD_FILE: /run/secrets/gmail_passwd
     networks:
       - services
 
@@ -237,6 +304,8 @@ services:
     environment:
       - VIRTUAL_HOST=deluge.${DOMAIN}
       - VIRTUAL_PORT=8112
+    ports:
+      - 58846:58846
     volumes:
       - deluge:/config
       - Movies:/storage/Movies:rw
@@ -346,6 +415,8 @@ services:
     container_name: homeassistant
     restart: unless-stopped
     user: ${PUID}:${PGID}
+    depends_on:
+      - traefik
     volumes:
       - homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
@@ -399,6 +470,12 @@ secrets:
     file: ${SECRETS_BASE_PATH}/nextcloud_db_passwd.secret
   nextcloud_admin_passwd:
     file: ${SECRETS_BASE_PATH}/nextcloud_admin_passwd.secret
+  gmail_passwd:
+    file: ${SECRETS_BASE_PATH}/gmail.secret
+  speedtest_tracker_db_passwd:
+    file: ${SECRETS_BASE_PATH}/speedtest-tracker_db_passwd.secret
+  speedtest_tracker_app_key:
+    file: ${SECRETS_BASE_PATH}/speedtest-tracker_app_key.secret
 
 volumes:
   Movies:
