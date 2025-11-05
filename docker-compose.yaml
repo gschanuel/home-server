@@ -29,8 +29,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=whoami.${DOMAIN}
-      - VIRTUAL_PORT=80
+      VIRTUAL_HOST: whoami.${DOMAIN}
+      VIRTUAL_PORT: 80
     networks:
       - services
 
@@ -61,11 +61,11 @@ services:
     ports:
       - 30222:22
     environment:
-      - USER_UID=972
-      - USER_GID=972
-      - DISABLE_REGISTRATION=true
-      - VIRTUAL_HOST=git.${DOMAIN}
-      - VIRTUAL_PORT=3000
+      USER_UID: 972
+      USER_GID: 972
+      DISABLE_REGISTRATION: true
+      VIRTUAL_HOST: git.${DOMAIN}
+      VIRTUAL_PORT: 3000
     volumes:
       - gitea_data:/data
       - gitea_home:/data/git/.ssh
@@ -80,8 +80,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=vaultwarden.${DOMAIN}
-      - VIRTUAL_PORT=80
+      VIRTUAL_HOST: vaultwarden.${DOMAIN}
+      VIRTUAL_PORT: 80
     volumes:
       - vaultwarden:/data
     networks:
@@ -95,8 +95,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=thelounge.${DOMAIN}
-      - VIRTUAL_PORT=9000
+      VIRTUAL_HOST: thelounge.${DOMAIN}
+      VIRTUAL_PORT: 9000
     volumes:
       - thelounge:/var/opt/thelounge
     networks:
@@ -109,13 +109,13 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - MODE=standalone
-      - TITLE=LibreSpeed
-      - TELEMETRY=true
-      - ENABLE_ID_OBFUSCATION=false
-      - REDACT_IP_ADDRESSES=false
-      - VIRTUAL_HOST=speedtest.${DOMAIN}
-      - VIRTUAL_PORT=8080
+      MODE: standalone
+      TITLE: LibreSpeed
+      TELEMETRY: true
+      ENABLE_ID_OBFUSCATION: false
+      REDACT_IP_ADDRESSES: false
+      VIRTUAL_HOST: speedtest.${DOMAIN}
+      VIRTUAL_PORT: 8080
     volumes:
       - librespeed:/database
     networks:
@@ -129,8 +129,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=youtube.${DOMAIN}
-      - VIRTUAL_PORT=3033
+      VIRTUAL_HOST: youtube.${DOMAIN}
+      VIRTUAL_PORT: 3033
     volumes:
       - ytdlp-downloads:/downloads
       - ytdlp-config:/config
@@ -144,9 +144,9 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - LANGS=pt_BR
-      - VIRTUAL_HOST=pdf.${DOMAIN}
-      - VIRTUAL_PORT=8080
+      LANGS: pt_BR
+      VIRTUAL_HOST: pdf.${DOMAIN}
+      VIRTUAL_PORT: 8080
     volumes:
       - /usr/share/tessdata:/trainingData
       - stirling-pdf-configs:/configs
@@ -177,21 +177,21 @@ services:
       - nextcloud_db_passwd
       - nextcloud_admin_passwd
     environment:
-      - REDIS_HOST=redis
-      - OVERWRITEPROTOCOL=https
-      - OVERWRITEHOST=nextcloud.${DOMAIN}
-      - TRUSTED_PROXIES=172.19.0.0/16 172.20.0.0/16
-      - PHP_MEMORY_LIMIT=8G
-      - PHP_UPLOAD_LIMIT=8G
-      - POST_MAX_SIZE=8G
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=nextcloud_user
-      - POSTGRES_HOST=postgresql
-      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_passwd
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_passwd
-      - NEXTCLOUD_MAINTENANCE_WINDOW_START=1
-      - NEXTCLOUD_DEFAULT_PHONE_REGION=BR
+      REDIS_HOST: redis
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.${DOMAIN}
+      TRUSTED_PROXIES: 172.19.0.0/16 172.20.0.0/16
+      PHP_MEMORY_LIMIT: 8G
+      PHP_UPLOAD_LIMIT: 8G
+      POST_MAX_SIZE: 8G
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_HOST: postgresql
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_passwd
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_passwd
+      NEXTCLOUD_MAINTENANCE_WINDOW_START: 1
+      NEXTCLOUD_DEFAULT_PHONE_REGION: BR
     volumes:
       - nextcloud:/var/www/html
       - nextcloud-config:/var/www/html/config:z
@@ -211,8 +211,8 @@ services:
     container_name: nextcloud-web
     restart: unless-stopped
     environment:
-      - VIRTUAL_HOST=nextcloud.${DOMAIN}
-      - VIRTUAL_PORT=80
+      VIRTUAL_HOST: nextcloud.${DOMAIN}
+      VIRTUAL_PORT: 80
     volumes:
       - nextcloud:/var/www/html
       - nextcloud-config:/var/www/html/config
@@ -258,20 +258,20 @@ services:
       - speedtest_tracker_db_passwd
       - speedtest_tracker_app_key
     environment:
-      - VIRTUAL_HOST=speedtest-tracker.${DOMAIN}
-      - VIRTUAL_PORT=9696
-      - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
-      - DB_CONNECTION=pgsql
-      - DB_HOST=postgresql
-      - DB_PORT=5432
-      - ADMIN_EMAIL=${EMAIL}
-      - DB_DATABASE=speedtest_tracker
-      - DB_USERNAME=speedtest_tracker
-      - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
-      - APP_TIMEZONE=America/Sao_Paulo
-      - DISPLAY_TIMEZONE=America/Sao_Paulo
-      - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
-      - SPEEDTEST_SCHEDULE="17 * * * *"
+      VIRTUAL_HOST: speedtest-tracker.${DOMAIN}
+      VIRTUAL_PORT: 9696
+      FILE__APP_KEY: /var/run/secrets/speedtest_tracker_app_key
+      DB_CONNECTION: pgsql
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      ADMIN_EMAIL: ${EMAIL}
+      DB_DATABASE: speedtest_tracker
+      DB_USERNAME: speedtest_tracker
+      FILE__DB_PASSWORD: /var/run/secrets/speedtest_tracker_db_passwd
+      APP_TIMEZONE: America/Sao_Paulo
+      DISPLAY_TIMEZONE: America/Sao_Paulo
+      SPEEDTEST_BLOCKED_SERVERS: "69547,71619"
+      SPEEDTEST_SCHEDULE: "17 * * * *"
     # volumes:
     #     - speedtest_tracker:/config
     depends_on:
@@ -309,8 +309,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=deluge.${DOMAIN}
-      - VIRTUAL_PORT=8112
+      VIRTUAL_HOST: deluge.${DOMAIN}
+      VIRTUAL_PORT: 8112
     ports:
       - 58846:58846
     volumes:
@@ -330,8 +330,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=jellyfin.${DOMAIN}
-      - VIRTUAL_PORT=8096
+      VIRTUAL_HOST: jellyfin.${DOMAIN}
+      VIRTUAL_PORT: 8096
     group_add:
       - 989
       - 985
@@ -355,8 +355,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=prowlarr.${DOMAIN}
-      - VIRTUAL_PORT=9696
+      VIRTUAL_HOST: prowlarr.${DOMAIN}
+      VIRTUAL_PORT: 9696
     volumes:
       - prowlarr:/config
     networks:
@@ -370,8 +370,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=radarr.${DOMAIN}
-      - VIRTUAL_PORT=7878
+      VIRTUAL_HOST: radarr.${DOMAIN}
+      VIRTUAL_PORT: 7878
     volumes:
       - radarr:/config
       - Movies:/storage/Movies:rw
@@ -387,8 +387,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=sonarr.${DOMAIN}
-      - VIRTUAL_PORT=8989
+      VIRTUAL_HOST: sonarr.${DOMAIN}
+      VIRTUAL_PORT: 8989
     volumes:
       - sonarr:/config
       - Series:/storage/Series:rw
@@ -404,8 +404,8 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - VIRTUAL_HOST=bazarr.${DOMAIN}
-      - VIRTUAL_PORT=6767
+      VIRTUAL_HOST: bazarr.${DOMAIN}
+      VIRTUAL_PORT: 6767
     volumes:
       - bazarr:/config
       - Series:/storage/Series:rw
@@ -421,11 +421,11 @@ services:
     depends_on:
       - nginx-proxy
     environment:
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - LOG_HTML=${LOG_HTML:-false}
-      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
-      - VIRTUAL_HOST=flaresolverr.${DOMAIN}
-      - VIRTUAL_PORT=8191
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_HTML: ${LOG_HTML:-false}
+      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
+      VIRTUAL_HOST: flaresolverr.${DOMAIN}
+      VIRTUAL_PORT: 8191
     networks:
       - mediaserver
 
@@ -441,8 +441,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
     privileged: true
     environment:
-      - VIRTUAL_HOST=homeassistant.${DOMAIN}
-      - VIRTUAL_PORT=8123
+      VIRTUAL_HOST: homeassistant.${DOMAIN}
+      VIRTUAL_PORT: 8123
     networks:
       - mediaserver
       - services
