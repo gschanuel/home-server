@@ -258,20 +258,20 @@ services:
       - speedtest_tracker_db_passwd
       - speedtest_tracker_app_key
     environment:
-        - VIRTUAL_HOST=speedtest-tracker.${DOMAIN}
-        - VIRTUAL_PORT=9696
-        - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
-        - DB_CONNECTION=pgsql
-        - DB_HOST=postgresql
-        - DB_PORT=5432
-        - ADMIN_EMAIL=${EMAIL}
-        - DB_DATABASE=speedtest_tracker
-        - DB_USERNAME=speedtest_tracker
-        - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
-        - APP_TIMEZONE=America/Sao_Paulo
-        - DISPLAY_TIMEZONE=America/Sao_Paulo
-        - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
-        - SPEEDTEST_SCHEDULE="17 * * * *"
+      - VIRTUAL_HOST=speedtest-tracker.${DOMAIN}
+      - VIRTUAL_PORT=9696
+      - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - ADMIN_EMAIL=${EMAIL}
+      - DB_DATABASE=speedtest_tracker
+      - DB_USERNAME=speedtest_tracker
+      - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
+      - APP_TIMEZONE=America/Sao_Paulo
+      - DISPLAY_TIMEZONE=America/Sao_Paulo
+      - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
+      - SPEEDTEST_SCHEDULE="17 * * * *"
     # volumes:
     #     - speedtest_tracker:/config
     depends_on:
