@@ -2,6 +2,8 @@ name: home-server
 services:
   traefik:
     image: traefik:latest
+    profiles:
+      - "traefik"
     container_name: traefik
     restart: unless-stopped
     security_opt:
@@ -18,95 +20,84 @@ services:
       - ./extras/traefik:/dynamic
       - ${SECRETS_BASE_PATH}/${DOMAIN}_cert.secret:/config/${DOMAIN}_cert.secret:rw
     environment:
-      # dynv6.com RFC2136 credentials
-      - RFC2136_NAMESERVER=95.216.144.82
-      - RFC2136_TSIG_KEY_FILE=/run/secrets/rfc2136_tsig_key
-      - RFC2136_TSIG_ALGORITHM_FILE=/run/secrets/rfc2136_tsig_algorithm
-      - RFC2136_TSIG_SECRET_FILE=/run/secrets/rfc2136_tsig_secret
+      RFC2136_NAMESERVER: 95.216.144.82
+      RFC2136_TSIG_KEY_FILE: /run/secrets/rfc2136_tsig_key
+      RFC2136_TSIG_ALGORITHM_FILE: /run/secrets/rfc2136_tsig_algorithm
+      RFC2136_TSIG_SECRET_FILE: /run/secrets/rfc2136_tsig_secret
     secrets:
       - traefik_dashboard_auth
       - rfc2136_tsig_key
       - rfc2136_tsig_algorithm
       - rfc2136_tsig_secret
     command:
-      #- --serverstransport.insecureskipverify=true
-      # EntryPoints
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.websecure.http.tls=true"
-
-      # Attach the static configuration tls.yaml
-      # That contains the external generated tls paths
-      # When configured, this will be the fallback TLS configuration
-      # - "--providers.file.filename=/dynamic/tls.yaml"
-
-      # ACME Configuration using RFC2136 DNS Challenge with dynv6.com
       - "--entrypoints.websecure.http.tls.certResolver=rfc2136"
       - "--certificatesresolvers.rfc2136.acme.dnschallenge=true"
       - "--certificatesresolvers.rfc2136.acme.dnschallenge.provider=rfc2136"
-      # Use Let's Encrypt staging environment for testing to avoid hitting rate limits
-      # Comment the following line when you are ready to go live
-      # - "--certificatesresolvers.rfc2136.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.rfc2136.acme.email=${EMAIL}"
       - "--certificatesresolvers.rfc2136.acme.storage=/config/${DOMAIN}_cert.secret"
-      # resolvers ns1.dynv6.com and ns2.dynv6.com
       - "--certificatesresolvers.rfc2136.acme.dnsChallenge.resolvers=95.216.144.82, 5.45.100.251"
       - "--certificatesresolvers.rfc2136.acme.dnsChallenge.propagation.delayBeforeChecks=30"
-
-      # Providers
       - "--providers.docker=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=frontend"
-
-      # API & Dashboard
       - "--api.dashboard=true"
       - "--api.insecure=false"
-
-      # Observability
       - "--log.level=INFO"
       - "--accesslog=true"
       - "--metrics.prometheus=true"
-
-  # Traefik Dynamic configuration via Docker labels
     labels:
-      # Enable self‑routing
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
-      # Dashboard router
       - "traefik.http.routers.dashboard.rule=Host(`dashboard.${DOMAIN}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.tls=true"
-
-      # Basic‑auth middleware
-      # https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/#configuration-examples
       - "traefik.http.middlewares.dashboard-auth.basicauth.usersFile=/run/secrets/traefik_dashboard_auth"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth@docker"
-
-      # TLS Options
-      # Generate a single wildcard certificate for your domain and all its subdomains
       - "traefik.tls.stores.default.defaultgeneratedcert.resolver=rfc2136"
       - "traefik.tls.stores.default.defaultgeneratedcert.domain.main=*.${DOMAIN}"
-      # - "traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${DOMAIN}"
     networks:
-     # Connect to the 'frontend' overlay network for inter-container communication across nodes
-     # Also connect to the 'services' network to route traffic to backend services
-     # Connect to the 'mediaserver' network to route traffic to media services
       - frontend
       - services
       - mediaserver
 
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    restart: unless-stopped
+    profiles:
+      - "nginx"
+    container_name: nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
+      - ${SECRETS_BASE_PATH}/${DOMAIN}_fullchain.secret:/etc/nginx/certs/default.crt:ro
+      - ${SECRETS_BASE_PATH}/${DOMAIN}_privkey.secret:/etc/nginx/certs/default.key:ro
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - frontend
+      - mediaserver
+      - services
+
   whoami:
     image: traefik/whoami
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: whoami
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: whoami.${DOMAIN}
+      VIRTUAL_PORT: 80
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -118,12 +109,13 @@ services:
 
   postgresql:
     image: postgres:13
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: postgresql
     restart: unless-stopped
     secrets:
       - postgres_passwd
-    depends_on:
-      - traefik
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_passwd
       TZ: America/Sao_Paulo
@@ -134,26 +126,30 @@ services:
 
   gitea:
     image: gitea/gitea
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: gitea
     restart: unless-stopped
     depends_on:
       - postgresql
-      - traefik
     env_file:
       - ./.env
       - ${SECRETS_BASE_PATH}/gitea.env
+    ports:
+      - 30222:22
+    environment:
+      USER_UID: 972
+      USER_GID: 972
+      DISABLE_REGISTRATION: true
+      VIRTUAL_HOST: git.${DOMAIN}
+      VIRTUAL_PORT: 3000
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
       - "traefik.http.routers.gitea.entrypoints=websecure"
       - "traefik.http.routers.gitea.rule=Host(`git.${DOMAIN}`)"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
-    ports:
-      - 30222:22
-    environment:
-      - USER_UID=972
-      - USER_GID=972
-      - DISABLE_REGISTRATION=true
     volumes:
       - gitea_data:/data
       - gitea_home:/data/git/.ssh
@@ -162,11 +158,15 @@ services:
 
   vaultwarden:
     image: ghcr.io/timshel/vaultwarden
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: vaultwarden
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: vaultwarden.${DOMAIN}
+      VIRTUAL_PORT: 80
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -181,11 +181,15 @@ services:
 
   thelounge:
     image: thelounge/thelounge
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: thelounge
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: thelounge.${DOMAIN}
+      VIRTUAL_PORT: 9000
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -199,11 +203,20 @@ services:
       - services
 
   speedtest:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: speedtest
     image: ghcr.io/librespeed/speedtest:latest
     restart: unless-stopped
-    depends_on:
-      - traefik
+    environment:
+      MODE: standalone
+      TITLE: "LibreSpeed"
+      TELEMETRY: true
+      ENABLE_ID_OBFUSCATION: false
+      REDACT_IP_ADDRESSES: false
+      VIRTUAL_HOST: speedtest.${DOMAIN}
+      VIRTUAL_PORT: 8080
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -211,12 +224,6 @@ services:
       - "traefik.http.routers.speedtest.entrypoints=websecure"
       - "traefik.http.routers.speedtest.rule=Host(`speedtest.${DOMAIN}`)"
       - "traefik.http.services.speedtest.loadbalancer.server.port=8080"
-    environment:
-      MODE: standalone
-      TITLE: "LibreSpeed"
-      TELEMETRY: "true"
-      ENABLE_ID_OBFUSCATION: "false"
-      REDACT_IP_ADDRESSES: "false"
     volumes:
       - librespeed:/database
     networks:
@@ -224,11 +231,15 @@ services:
 
   ytdlp:
     image: marcobaobao/yt-dlp-webui
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: ytdlp
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: youtube.${DOMAIN}
+      VIRTUAL_PORT: 3033
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -244,12 +255,15 @@ services:
 
   stirling-pdf:
     image: frooodle/s-pdf
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: stirling-pdf
     restart: unless-stopped
     environment:
       LANGS: pt_BR
-    depends_on:
-      - traefik
+      VIRTUAL_HOST: pdf.${DOMAIN}
+      VIRTUAL_PORT: 8080
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -265,43 +279,46 @@ services:
       - services
 
   redis:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: nextcloud-redis
     image: redis:alpine
     restart: unless-stopped
-    depends_on:
-      - traefik
     networks:
       - services
 
   app:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: nextcloud-app
     image: nextcloud:fpm-alpine
     restart: unless-stopped
     depends_on:
       - postgresql
       - redis
-      - traefik
     group_add:
       - ${PGID}
     secrets:
       - nextcloud_db_passwd
       - nextcloud_admin_passwd
     environment:
-      - REDIS_HOST=redis
-      - OVERWRITEPROTOCOL=https
-      - OVERWRITEHOST=nextcloud.${DOMAIN}
-      - TRUSTED_PROXIES=172.19.0.0/16 172.20.0.0/16
-      - PHP_MEMORY_LIMIT=8G
-      - PHP_UPLOAD_LIMIT=8G
-      - POST_MAX_SIZE=8G
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=nextcloud_user
-      - POSTGRES_HOST=postgresql
-      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_passwd
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_passwd
-      - NEXTCLOUD_MAINTENANCE_WINDOW_START=1
-      - NEXTCLOUD_DEFAULT_PHONE_REGION=BR
+      REDIS_HOST: redis
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.${DOMAIN}
+      TRUSTED_PROXIES: 172.19.0.0/16 172.20.0.0/16
+      PHP_MEMORY_LIMIT: 8G
+      PHP_UPLOAD_LIMIT: 8G
+      POST_MAX_SIZE: 8G
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_HOST: postgresql
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_passwd
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_passwd
+      NEXTCLOUD_MAINTENANCE_WINDOW_START: 1
+      NEXTCLOUD_DEFAULT_PHONE_REGION: BR
     volumes:
       - nextcloud:/var/www/html
       - nextcloud-config:/var/www/html/config:z
@@ -318,8 +335,14 @@ services:
 
   web:
     image: nginx:alpine-slim
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: nextcloud-web
     restart: unless-stopped
+    environment:
+      VIRTUAL_HOST: nextcloud.${DOMAIN}
+      VIRTUAL_PORT: 80
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -345,11 +368,13 @@ services:
       - ./extras/nextcloud/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
     depends_on:
       - app
-      - traefik
     networks:
       - services
 
   cron:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: nextcloud-cron
     image: nextcloud:fpm-alpine
     restart: unless-stopped
@@ -369,13 +394,15 @@ services:
     entrypoint: /cron.sh
     depends_on:
       - redis
-      - traefik
     networks:
       - services
 
   speedtest-tracker:
     image: lscr.io/linuxserver/speedtest-tracker:latest
     restart: unless-stopped
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: speedtest-tracker
     env_file:
       - ./.env
@@ -383,18 +410,20 @@ services:
       - speedtest_tracker_db_passwd
       - speedtest_tracker_app_key
     environment:
-      - FILE__APP_KEY=/var/run/secrets/speedtest_tracker_app_key
-      - DB_CONNECTION=pgsql
-      - DB_HOST=postgresql
-      - DB_PORT=5432
-      - ADMIN_EMAIL=${EMAIL}
-      - DB_DATABASE=speedtest_tracker
-      - DB_USERNAME=speedtest_tracker
-      - FILE__DB_PASSWORD=/var/run/secrets/speedtest_tracker_db_passwd
-      - APP_TIMEZONE=America/Sao_Paulo
-      - DISPLAY_TIMEZONE=America/Sao_Paulo
-      - SPEEDTEST_BLOCKED_SERVERS="69547,71619"
-      - SPEEDTEST_SCHEDULE="17 * * * *"
+      FILE__APP_KEY: /var/run/secrets/speedtest_tracker_app_key
+      DB_CONNECTION: pgsql
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      ADMIN_EMAIL: ${EMAIL}
+      DB_DATABASE: speedtest_tracker
+      DB_USERNAME: speedtest_tracker
+      FILE__DB_PASSWORD: /var/run/secrets/speedtest_tracker_db_passwd
+      APP_TIMEZONE: America/Sao_Paulo
+      DISPLAY_TIMEZONE: America/Sao_Paulo
+      SPEEDTEST_BLOCKED_SERVERS: "69547,71619"
+      SPEEDTEST_SCHEDULE: "17 * * * *"
+      VIRTUAL_HOST: speedtest-tracker.${DOMAIN}
+      VIRTUAL_PORT: 9696
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
@@ -402,29 +431,22 @@ services:
       - "traefik.http.routers.speedtest-tracker.entrypoints=websecure"
       - "traefik.http.routers.speedtest-tracker.rule=Host(`speedtest-tracker.${DOMAIN}`)"
       - "traefik.http.services.speedtest-tracker.loadbalancer.server.port=80"
-    # volumes:
-    #     - speedtest_tracker:/config
     depends_on:
-        - postgresql
-        - traefik
+      - postgresql
     networks:
-        - services
+      - services
 
   smtp:
     image: registry.gitlab.com/egos-tech/smtp:latest
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: smtp
     restart: always
     secrets:
       - gmail_passwd
-    depends_on:
-      - traefik
-    # ports:
-    #  - "25:25"
     environment:
-      # MUST start with `:`
-      # if acting as a relay this or RELAY_DOMAINS must be filled out or incoming mail will be rejected
       RELAY_NETWORKS: :172.19.0.0/16:172.20.0.0/16
-      # what domains should be accepted to forward to lower distance MX server.
       RELAY_DOMAINS: 'gmail.com'
       GMAIL_USER: ${EMAIL}
       GMAIL_PASSWORD_FILE: /run/secrets/gmail_passwd
@@ -432,21 +454,23 @@ services:
       - services
 
   deluge:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: deluge
     image: lscr.io/linuxserver/deluge:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: deluge.${DOMAIN}
+      VIRTUAL_PORT: 8112
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
       - "traefik.http.routers.deluge.tls=true"
-
       - "traefik.http.routers.deluge.rule=Host(`deluge.${DOMAIN}`)"
       - "traefik.http.routers.deluge.entrypoints=websecure"
       - "traefik.http.services.deluge.loadbalancer.server.port=8112"
-
       - "traefik.http.routers.deluged.rule=Host(`deluged.${DOMAIN}`)"
       - "traefik.tcp.routers.deluged.entrypoints=websecure"
       - "traefik.tcp.routers.deluged.service=deluged"
@@ -463,12 +487,16 @@ services:
       - mediaserver
 
   jellyfin:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: jellyfin
     image: jellyfin/jellyfin
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: jellyfin.${DOMAIN}
+      VIRTUAL_PORT: 8096
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
@@ -477,8 +505,8 @@ services:
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
     group_add:
-      - "989"
-      - "985"
+      - 989
+      - 985
     devices:
       - /dev/dri:/dev/dri
       - /dev/dri/renderD128:/dev/dri/renderD128
@@ -492,12 +520,16 @@ services:
       - mediaserver
 
   prowlarr:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: prowlarr
     image: lscr.io/linuxserver/prowlarr:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: prowlarr.${DOMAIN}
+      VIRTUAL_PORT: 9696
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
@@ -511,12 +543,16 @@ services:
       - mediaserver
 
   radarr:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: radarr
     image: ghcr.io/onedr0p/radarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: radarr.${DOMAIN}
+      VIRTUAL_PORT: 7878
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
@@ -532,12 +568,16 @@ services:
       - mediaserver
 
   sonarr:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: sonarr
     image: ghcr.io/onedr0p/sonarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: sonarr.${DOMAIN}
+      VIRTUAL_PORT: 8989
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
@@ -553,12 +593,16 @@ services:
       - mediaserver
 
   bazarr:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: bazarr
     image: ghcr.io/onedr0p/bazarr:rolling
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: bazarr.${DOMAIN}
+      VIRTUAL_PORT: 6767
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
@@ -574,32 +618,39 @@ services:
       - mediaserver
 
   flaresolverr:
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: flaresolverr
     image: ghcr.io/flaresolverr/flaresolverr:latest
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_HTML: ${LOG_HTML:-false}
+      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
+      VIRTUAL_HOST: flaresolverr.${DOMAIN}
+      VIRTUAL_PORT: 8191
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=mediaserver"
       - "traefik.http.routers.flaresolverr.entrypoints=websecure"
       - "traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN}`)"
       - "traefik.http.services.flaresolverr.loadbalancer.server.port=8191"
-    environment:
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_HTML: ${LOG_HTML:-false}
-      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
     networks:
       - mediaserver
 
   homeassistant:
     image: ghcr.io/onedr0p/home-assistant:rolling
+    profiles:
+      - "nginx"
+      - "traefik"
     container_name: homeassistant
     restart: unless-stopped
     user: ${PUID}:${PGID}
-    depends_on:
-      - traefik
+    environment:
+      VIRTUAL_HOST: homeassistant.${DOMAIN}
+      VIRTUAL_PORT: 8123
     volumes:
       - homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
@@ -623,8 +674,8 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: "172.18.0.0/16"
-      - subnet: "fd3c:fa11:c0de:1::/64"
+        - subnet: 172.18.0.0/16
+        - subnet: fd3c:fa11:c0de:1::/64
   services:
     name: services
     enable_ipv6: true
@@ -632,8 +683,8 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: "172.19.0.0/16"
-      - subnet: "fd3c:fa11:c0de:2::/64"
+        - subnet: 172.19.0.0/16
+        - subnet: fd3c:fa11:c0de:2::/64
   mediaserver:
     name: mediaserver
     enable_ipv6: true
@@ -641,8 +692,8 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: "172.20.0.0/16"
-      - subnet: "fd3c:fa11:c0de:3::/64"
+        - subnet: 172.20.0.0/16
+        - subnet: fd3c:fa11:c0de:3::/64
 
 secrets:
   traefik_dashboard_auth:
@@ -734,23 +785,23 @@ volumes:
     name: gitea_data
     driver: local
     driver_opts:
-        type: none
-        device: ${VOLUMES_BASE_PATH}/gitea
-        o: bind,rw
+      type: none
+      device: ${VOLUMES_BASE_PATH}/gitea
+      o: bind,rw
   gitea_home:
     name: gitea_home
     driver: local
     driver_opts:
-        type: none
-        device: /home/git/.ssh
-        o: bind,rw
+      type: none
+      device: /home/git/.ssh
+      o: bind,rw
   vaultwarden:
     name: vaultwarden
     driver: local
     driver_opts:
-        type: none
-        device: ${VOLUMES_BASE_PATH}/vaultwarden
-        o: bind,rw
+      type: none
+      device: ${VOLUMES_BASE_PATH}/vaultwarden
+      o: bind,rw
   nextcloud:
     name: nextcloud
   nextcloud-config:
