@@ -124,6 +124,34 @@ services:
     networks:
       - services
 
+  # shinobi:
+  #   image: shinobisystems/shinobi
+  #   # build:
+  #   #   context: ../ShinobiDocker/
+  #   #   args:
+  #   #     SHINOBI_BRANCH: dev
+  #   profiles:
+  #     - "nginx"
+  #     - "traefik"
+  #   container_name: shinobi
+  #   restart: unless-stopped
+  #   environment:
+  #     VIRTUAL_HOST: shinobi.${DOMAIN}
+  #     VIRTUAL_PORT: 8080
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=services"
+  #     - "traefik.http.routers.shinobi.entrypoints=websecure"
+  #     - "traefik.http.routers.shinobi.rule=Host(`shinobi.${DOMAIN}`)"
+  #     - "traefik.http.services.shinobi.loadbalancer.server.port=8080"
+  #   volumes:
+  #     - shinobi_config:/config
+  #     - shinobi_videos:/opt/shinobi/videos
+  #     - shinobi_db:/var/lib/mysql
+  #   networks:
+  #     - services
+  #     - frontend
+
   gitea:
     image: gitea/gitea
     profiles:
@@ -781,6 +809,27 @@ volumes:
       type: local
       device: ${VOLUMES_BASE_PATH}/postgresql
       o: bind,rw
+  # shinobi_config:
+  #   name: shinobi_config
+  #   driver: local
+  #   driver_opts:
+  #     type: local
+  #     device: ${VOLUMES_BASE_PATH}/shinobi/config
+  #     o: bind,rw
+  # shinobi_db:
+  #   name: shinobi_db
+  #   driver: local
+  #   driver_opts:
+  #     type: local
+  #     device: ${VOLUMES_BASE_PATH}/shinobi/db
+  #     o: bind,rw
+  # shinobi_videos:
+  #   name: shinobi_videos
+  #   driver: local
+  #   driver_opts:
+  #     type: local
+  #     device: ${VOLUMES_BASE_PATH}/shinobi/videos
+  #     o: bind,rw
   gitea_data:
     name: gitea_data
     driver: local
