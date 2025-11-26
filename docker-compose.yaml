@@ -123,6 +123,22 @@ services:
       - postgresql:/var/lib/postgresql/data
     networks:
       - services
+  mariadb:
+    image: mariadb
+    profiles:
+      - "nginx"
+      - "traefik"
+    container_name: mariadb
+    restart: unless-stopped
+    secrets:
+      - mariadb_root_passwd
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_passwd
+      TZ: America/Sao_Paulo
+    volumes:
+      - mariadb:/var/lib/mysql
+    networks:
+      - services
 
   # shinobi:
   #   image: shinobisystems/shinobi
@@ -151,6 +167,40 @@ services:
   #   networks:
   #     - services
   #     - frontend
+  zoneminder:
+    image: zoneminderhq/zoneminder:latest-el7
+    profiles:
+      - "nginx"
+      - "traefik"
+    container_name: zoneminder
+    restart: unless-stopped
+    # ports:
+    #   - 80:80
+    #   - 443:443
+    # privileged: true
+    shm_size: 512M
+    env_file:
+      - ./.env
+      - ${SECRETS_BASE_PATH}/zoneminder.env
+    environment:
+      VIRTUAL_HOST: zoneminder.${DOMAIN}
+      VIRTUAL_PORT: 80
+      ZM_DB_HOST: mariadb
+      ZM_DB_NAME: zoneminder
+      ZM_DB_USER: zmuser
+      ZM_DB_PASS: 'd4b0fe6ee5135d2e01295a5bf73c8e0f'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=services"
+      - "traefik.http.routers.zoneminder.entrypoints=websecure"
+      - "traefik.http.routers.zoneminder.rule=Host(`zoneminder.${DOMAIN}`)"
+      - "traefik.http.services.zoneminder.loadbalancer.server.port=80"
+    volumes:
+      - zoneminder:/var/cache/zoneminder
+      # - mariadb:/var/lib/mysql
+      #- logs:/var/log/zm
+    networks:
+      - services
 
   gitea:
     image: gitea/gitea
@@ -734,6 +784,8 @@ secrets:
     file: ${SECRETS_BASE_PATH}/rfc2136_tsig_secret.secret
   postgres_passwd:
     file: ${SECRETS_BASE_PATH}/postgres_passwd.secret
+  mariadb_root_passwd:
+    file: ${SECRETS_BASE_PATH}/mariadb_root_passwd.secret
   nextcloud_db_passwd:
     file: ${SECRETS_BASE_PATH}/nextcloud_db_passwd.secret
   nextcloud_admin_passwd:
@@ -808,6 +860,20 @@ volumes:
     driver_opts:
       type: local
       device: ${VOLUMES_BASE_PATH}/postgresql
+      o: bind,rw
+  mariadb:
+    name: mariadb
+    driver: local
+    driver_opts:
+      type: local
+      device: ${VOLUMES_BASE_PATH}/mariadb
+      o: bind,rw
+  zoneminder:
+    name: zoneminder
+    driver: local
+    driver_opts:
+      type: local
+      device: ${VOLUMES_BASE_PATH}/zoneminder
       o: bind,rw
   # shinobi_config:
   #   name: shinobi_config
