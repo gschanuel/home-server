@@ -501,7 +501,7 @@ services:
       SPEEDTEST_BLOCKED_SERVERS: "69547,71619"
       SPEEDTEST_SCHEDULE: "17 * * * *"
       VIRTUAL_HOST: speedtest-tracker.${DOMAIN}
-      VIRTUAL_PORT: 9696
+      VIRTUAL_PORT: 80
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=services"
